@@ -1,116 +1,45 @@
-# 🛒 MVP - Análise de Vendas de Supermercado com Databricks
+# Vendas de supermercado no Databricks
 
-## 📌 Tema
-**Análise de Vendas e Otimização da Cadeia de Suprimentos em Supermercados**
+MVP de engenharia de dados da pós-graduação, feito em abril de 2025. É um notebook do Databricks que
+leva o dataset público "Supermarket Sales", do Kaggle, por três camadas (bronze, silver e gold) e
+responde a perguntas de negócio com Spark SQL. O dataset tem 1.000 vendas de três filiais de uma rede
+em Mianmar, de janeiro a março de 2019.
 
-## 🎯 Objetivo do Projeto
-Investigar padrões de compra dos clientes a fim de:
-- Auxiliar na definição de estratégias de marketing (promoções, segmentação, campanhas).
-- Otimizar a gestão de estoque e logística com base no comportamento de vendas.
+O notebook, com as saídas da execução, é o [vendas_supermercado.ipynb](vendas_supermercado.ipynb).
 
-## 🗃️ Coleta de Dados
-Os dados utilizados neste projeto foram obtidos a partir de um conjunto de dados disponível no Kaggle, intitulado "Supermarket Sales". Este dataset contém informações detalhadas sobre as transações de vendas em diferentes filiais de um supermercado, incluindo detalhes como data da compra, tipo de cliente, gênero, linha de produto, método de pagamento, entre outros.
+## Camadas
 
-## ❓ Perguntas de Negócio
-- Quais são as linhas de produtos com maior faturamento?
-- Quais filiais e cidades geram mais vendas?
-- Como variam as vendas por mês, ano e dia da semana?
-- Qual o impacto dos métodos de pagamento nas vendas?
-- Qual a margem de lucro média por filial?
-- Há diferença no comportamento entre tipos de clientes (Member vs Normal) e entre gêneros?
-- Qual é a avaliação média dos clientes para cada linha de produtos?
+- **Bronze:** lê o CSV com inferência de schema e grava do jeito que veio, em Parquet.
+- **Silver:** converte a data; cria dia da semana, mês, ano e margem (lucro bruto sobre o total);
+  passa algumas colunas para snake_case; grava em Parquet.
+- **Gold:** uma view temporária sobre a silver, consultada com `%sql`.
 
-## 🗂️ Pipeline de Dados (Delta Lake)
+## Perguntas
 
-### 🔹 Camada Bronze
-- **Descrição:** Ingestão dos dados brutos (formato CSV) e salvamento em formato Parquet.
-- **Operações:** Leitura dos dados com inferência de schema e visualização inicial para inspeção.
+| Pergunta | Resultado |
+|---|---|
+| Linha de produto com maior faturamento | Food and beverages: 56.144,84 em 174 vendas. As seis linhas ficam entre 49 mil e 56 mil |
+| Filial que mais fatura | C (Naypyitaw), com 110.568,71. A e B empatam perto de 106,2 mil |
+| Forma de pagamento | Em número de vendas, carteira digital (345) e dinheiro (344) empatam. Em valor, dinheiro fica na frente: 112.206,57 |
+| Tipo de cliente e gênero | Mulheres com cartão de membro têm o maior faturamento (88.146,94) e o maior ticket médio (337,73) |
+| Mês | Janeiro, com 116.291,87. Fevereiro foi o mais fraco |
+| Dia da semana | Sábado: 164 vendas e 56.120,81 |
+| Avaliação por linha de produto | Food and beverages tem a maior nota média, 7,11. Todas ficam entre 6,84 e 7,11 |
+| Margem por filial | 4,76% nas três filiais (explicação abaixo) |
 
-### 🔸 Camada Silver
-- **Descrição:** Transformações e limpeza dos dados.
-- **Operações:**
-  - **Conversão de datas e timestamps:** As colunas de data foram convertidas para o formato DateTime apropriado para facilitar análises temporais.
-  - **Criação de colunas derivadas:** Foram adicionadas colunas como dia da semana, mês e ano, extraídas a partir das datas originais, além da margem de lucro calculada.
-  - **Padronização de nomes de colunas e arredondamentos:** Os nomes das colunas foram padronizados para seguir uma convenção consistente, e valores numéricos foram arredondados conforme necessário para manter a precisão adequada.
+## Limitações
 
-### 🥇 Camada Gold
-- **Descrição:** Agregações e análises analíticas com SQL.
-- **Objetivo:** Responder diretamente às perguntas de negócio e extrair insights estratégicos.
+- A margem é a mesma em todas as filiais porque, neste dataset, o lucro bruto é sempre igual ao
+  imposto de 5%. Então a margem é 5/105 = 4,76% em qualquer venda, e a pergunta não separa nada.
+- A coluna `Datetime` da silver ficou nula. O `inferSchema` leu a hora como timestamp, com a data do
+  dia em que o notebook rodou, e a junção de data com hora não bateu com o formato esperado.
+- O arredondamento dos valores foi feito num DataFrame que não é gravado nem consultado. A silver
+  gravada não está arredondada.
+- As camadas são arquivos Parquet, não tabelas Delta, e a gold é uma view temporária, que só existe
+  enquanto a sessão está aberta.
 
-## 🗃️ Catálogo de Tabelas
+## Rodando
 
-### Camada Bronze
-
-| Nome da Coluna             | Tipo    | Nulável |
-|----------------------------|---------|---------|
-| Invoice ID                 | string  | sim     |
-| Branch                     | string  | sim     |
-| City                       | string  | sim     |
-| Customer type              | string  | sim     |
-| Gender                     | string  | sim     |
-| Product line               | string  | sim     |
-| Unit price                 | double  | sim     |
-| Quantity                   | integer | sim     |
-| Tax 5%                     | double  | sim     |
-| Total                      | double  | sim     |
-| Date                       | date    | sim     |
-| Time                       | timestamp | sim   |
-| Payment                    | string  | sim     |
-| COGS                       | double  | sim     |
-| Gross margin percentage    | double  | sim     |
-| Gross income               | double  | sim     |
-| Rating                     | double  | sim     |
-
-### Camada Silver
-
-| Nome da Coluna             | Tipo      | Nulável |
-|----------------------------|-----------|---------|
-| invoice_id                 | string    | sim     |
-| branch                     | string    | sim     |
-| city                       | string    | sim     |
-| customer_type              | string    | sim     |
-| gender                     | string    | sim     |
-| product_line               | string    | sim     |
-| unit_price                 | double    | sim     |
-| quantity                   | integer   | sim     |
-| tax_5                      | double    | sim     |
-| total                      | double    | sim     |
-| date                       | date      | sim     |
-| time                       | string    | sim     |
-| payment                    | string    | sim     |
-| cogs                       | double    | sim     |
-| gross_margin_perc          | double    | sim     |
-| gross_income               | double    | sim     |
-| rating                     | double    | sim     |
-| datetime                   | timestamp | sim     |
-| weekday                    | string    | sim     |
-| month                      | integer   | sim     |
-| year                       | integer   | sim     |
-| profit_margin              | double    | sim     |
-
-## 📊 Principais Resultados
-
-| Insight                             | Detalhes                                 |
-|-------------------------------------|------------------------------------------|
-| **Produto mais lucrativo**          | *Food and Beverages* (R$ 56.144,84 de faturamento) |
-| **Cidade com maior receita**        | *Naypyitaw* (R$ 110.568,71)              |
-| **Método de pagamento mais utilizado** | *Dinheiro (Cash)*                        |
-| **Gênero com maior ticket médio**   | *Feminino (Member)*                      |
-| **Melhor dia para vendas**          | *Sábado*                                 |
-| **Linha de produto com melhor avaliação** | *Food and Beverages* (Nota média: 7.11) |
-
-## 🧠 Conclusão & Insights
-A análise dos dados de vendas do supermercado revelou padrões valiosos de comportamento do consumidor e desempenho financeiro. Observamos que a linha de produtos "Food and Beverages" lidera em receita, enquanto a forma de pagamento "Ewallet" é amplamente preferida, indicando uma tendência crescente por transações digitais. A cidade com maior faturamento foi Naypyitaw, sugerindo maior poder aquisitivo ou concentração de consumo. Além disso, a margem de lucro variou significativamente entre os produtos, sendo essencial focar nos itens de maior retorno. Estes insights podem embasar decisões estratégicas de marketing, gestão de estoque e expansão comercial, maximizando o desempenho da operação.
-
-## 🧪 Tecnologias Utilizadas
-- Databricks
-- Apache Spark (PySpark)
-- SQL (Databricks SQL)
-- Delta Lake
-- Kaggle Datasets
-
-**Schema Gold:** (branch: string, city: string, customer_type: string, gender: string, product_line: string, payment: string, gross_income: double, total: double, rating: double, quantity: int, unit_price: double, cost: double, date: date, day_of_week: string, month: string, year: int, profit_margin: double)
-
-Link do projeto: https://databricks-prod-cloudfront.cloud.databricks.com/public/4027ec902e239c93eaaa
-::contentReference[oaicite:3]{index=3}
- 
+Importe o notebook no Databricks e envie o CSV do dataset. O notebook lê o arquivo em
+`dbfs:/FileStore/supermarket_sales___Sheet1.csv`; se ele for parar em outro caminho, ajuste a célula
+da camada bronze. Depois é só rodar as células na ordem.
